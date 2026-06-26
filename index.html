@@ -177,8 +177,8 @@
       </div>
 
       <div class="row">
-        <div class="field"><label for="destino">Enviar a</label><select id="destino"></select></div>
-        <div class="field"><label for="para">Tu correo (recibir copia, opcional)</label><input id="para" type="text" inputmode="email" placeholder="tu@correo"></div>
+        <div class="field"><label for="destino">Destino de tramitación (tras aprobación)</label><select id="destino"></select></div>
+        <div class="field"><label for="para">Tu correo (para recibir la resolución)</label><input id="para" type="text" inputmode="email" placeholder="tu@correo"></div>
       </div>
 
       <div class="actions">
@@ -207,8 +207,8 @@
       </div>
 
       <div class="sendbar" id="sendBar" hidden>
-        <p class="sendecho">Se enviará a: <strong id="destEcho">Personal</strong></p>
-        <button type="button" class="btn primary" id="btnEnviar" disabled>Enviar solicitud</button>
+        <p class="sendecho">Se enviará a la <strong>jefatura</strong> para su visto bueno. Destino tras aprobación: <strong id="destEcho">Personal</strong></p>
+        <button type="button" class="btn primary" id="btnEnviar" disabled>Enviar a la jefatura</button>
         <div class="msg" id="msg" hidden></div>
       </div>
       <div class="note">Sobre el impreso oficial de la <strong>Resolución 479/2013</strong> (Manual de Permisos, Vacaciones y Licencias del SAS). Tras descargarlo, imprímelo y fírmalo, o adjúntalo en la tramitación habitual.</div>
@@ -492,26 +492,19 @@ $('btnEnviar').onclick=async()=>{
   const b=$('btnDownload'); if(!b._bytes){ showMsg('Genera primero el impreso.'); return; }
   const d=collect();
   const perm=(CFG.permisos[d.permisoIdx]||{}).label||'permiso';
-  const destino=$('destino').value;
-  const destLabel=$('destino').selectedOptions[0] ? $('destino').selectedOptions[0].textContent : destino;
+  d.destino=$('destino').value;
+  d.correoSolicitante=($('para').value||'').trim();
+  d.permisoLabel=perm;
+  d.firmaDataUrl = sigHasInk() ? $('sigPad').toDataURL('image/png') : '';
   const periodo=periodoTexto(d);
   const solicitante=`${(d.apellidos||'').trim()}, ${(d.nombre||'').trim()}`.replace(/^,\s*|,\s*$/g,'');
   const payload={
-    token:TOKEN, destino,
+    token:TOKEN, action:'crear',
+    solicitante, dni:d.dni, permiso:perm, periodo, destino:d.destino, correoSolicitante:d.correoSolicitante,
     pdfBase64: bytesToB64(b._bytes),
-    filename: b._filename || 'Solicitud_SAS.pdf',
-    solicitante, dni:d.dni, permiso:perm, periodo,
-    correoSolicitante: ($('para').value||'').trim(),
-    asunto: `Solicitud de ${perm} — ${solicitante}`,
-    cuerpo: `Solicitud de ${perm}.
-Solicitante: ${(d.nombre||'')} ${(d.apellidos||'')} (DNI ${d.dni||'—'}).
-Periodo: ${periodo||'—'}.
-
-Generada desde la herramienta de solicitudes de Urgencias. El PDF firmado va adjunto.`
+    data: d
   };
-
-  $('btnEnviar').disabled=true;
-  showMsg('<strong>Enviando…</strong>');
+  $('btnEnviar').disabled=true; showMsg('<strong>Enviando a la jefatura…</strong>');
   try{
     const res = await fetch(ENDPOINT, {
       method:'POST',
@@ -522,12 +515,12 @@ Generada desde la herramienta de solicitudes de Urgencias. El PDF firmado va adj
     let ok=false, err='';
     try{ const j=await res.json(); ok=!!j.ok; err=j.error||''; }catch(_){ ok=res.ok; }
     if(ok){
-      showMsg(`<strong>✓ Enviado a ${destLabel}.</strong>${($('para').value||'').trim()?' Has recibido una copia en tu correo.':''}`);
+      showMsg('<strong>✓ Enviada a la jefatura para su visto bueno.</strong> Cuando la aprueben recibirás el documento final firmado'+(d.correoSolicitante?' en tu correo.':' (indica tu correo arriba para recibirlo).'));
     }else{
-      showMsg(`<strong>No se pudo enviar.</strong> ${err||'Revisa el cartero o el token.'} Mientras tanto puedes usar «Descargar PDF».`);
+      showMsg('<strong>No se pudo enviar.</strong> '+(err||'Revisa el cartero o el token.')+' Mientras tanto puedes usar «Descargar PDF».');
     }
   }catch(e){
-    showMsg(`<strong>No se pudo confirmar el envío.</strong> Comprueba si ha llegado; si no, dímelo. (Detalle: ${e}.) También puedes usar «Descargar PDF».`);
+    showMsg('<strong>No se pudo confirmar el envío.</strong> Comprueba si la jefatura ha recibido el aviso; si no, dímelo. (Detalle: '+e+'.)');
   }finally{
     $('btnEnviar').disabled=false;
   }
