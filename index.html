@@ -92,6 +92,10 @@
   .msg{margin-top:14px;border:1px solid #cfe6d8;background:var(--verde-50);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;color:var(--tinta)}
   .msg strong{color:var(--verde-700)}
   .msg ol{margin:8px 0 0;padding-left:20px}.msg li{margin:3px 0}
+  .sendbar{margin-top:16px;padding-top:16px;border-top:1px solid var(--linea)}
+  .sendbar .btn.primary{width:100%}
+  .sendecho{font-size:12.5px;color:var(--gris);margin:0 0 10px}
+  .sendecho strong{color:var(--verde-700)}
   footer{margin-top:30px;font-size:12px;color:var(--gris);text-align:center}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -181,11 +185,8 @@
         <button type="button" class="btn primary" id="btnGen">Generar impreso</button>
         <button type="button" class="btn ghost" id="btnDownload" disabled>Descargar PDF</button>
         <button type="button" class="btn ghost" id="btnFirmar" disabled>Firmar con certificado</button>
-        <button type="button" class="btn primary" id="btnEnviar" disabled>Enviar</button>
-        <button type="button" class="btn ghost" id="btnMail" disabled>Preparar correo</button>
         <button type="button" class="btn ghost" id="btnReset">Limpiar</button>
       </div>
-      <div class="msg" id="msg" hidden></div>
       <p class="hint">El impreso se genera por completo en tu navegador: ningún dato sale de este equipo. Las secciones de <strong>Informe de la Dirección</strong> y <strong>Resolución</strong> quedan en blanco a propósito, para que las cumplimente la jefatura o la Dirección.</p>
     </div>
   </div>
@@ -203,6 +204,12 @@
           <div>Rellena el formulario y pulsa<br><strong>Generar impreso</strong> para ver aquí<br>el documento oficial cumplimentado.</div>
         </div>
         <iframe id="previewFrame" title="Vista previa del impreso" style="display:none"></iframe>
+      </div>
+
+      <div class="sendbar" id="sendBar" hidden>
+        <p class="sendecho">Se enviará a: <strong id="destEcho">Personal</strong></p>
+        <button type="button" class="btn primary" id="btnEnviar" disabled>Enviar solicitud</button>
+        <div class="msg" id="msg" hidden></div>
       </div>
       <div class="note">Sobre el impreso oficial de la <strong>Resolución 479/2013</strong> (Manual de Permisos, Vacaciones y Licencias del SAS). Tras descargarlo, imprímelo y fírmalo, o adjúntalo en la tramitación habitual.</div>
     </div>
@@ -275,6 +282,7 @@ function sanitize(s){
 
   const dSel = $('destino');
   DESTINOS_UI.forEach(([v,t])=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; dSel.appendChild(o); });
+  dSel.addEventListener('change', updateDestEcho); updateDestEcho();
 
   // defaults
   $('puesto').value = 'Facultativo Especialista de Área – Urgencias';
@@ -427,7 +435,7 @@ async function generar(showStatus){
     $('btnDownload').disabled=false;
     $('btnFirmar').disabled=false;
     $('btnEnviar').disabled=false;
-    $('btnMail').disabled=false;
+    $('sendBar').hidden=false;
     $('btnDownload')._filename = `Solicitud_${(data.apellidos||'SAS').trim().replace(/\s+/g,'_')}_${data.fecha||''}.pdf`;
     $('btnDownload')._bytes = bytes;
     $('previewStatus').textContent = showStatus||'Actualizado';
@@ -468,22 +476,7 @@ $('btnFirmar').onclick=async()=>{
     ¿No tienes Autofirma? Es la aplicación oficial de firma de las administraciones públicas (firmaelectronica.gob.es).`);
 };
 
-$('btnMail').onclick=async()=>{
-  await ensurePdf(); const fn=downloadCurrent();
-  const d=collect(); const perm=(CFG.permisos[d.permisoIdx]||{}).label||'permiso';
-  const to=($('para').value||'').trim();
-  const subject=`Solicitud de ${perm} — ${(d.apellidos||'').trim()}, ${(d.nombre||'').trim()}`;
-  const body=`Hola,
-
-Adjunto mi solicitud de ${perm} cumplimentada.
-
-IMPORTANTE: recuerda adjuntar manualmente el archivo descargado${fn?` (${fn})`:''}; por seguridad, el navegador no puede adjuntarlo automáticamente.
-
-Un saludo,
-${(d.fdo||((d.nombre||'')+' '+(d.apellidos||''))).trim()}`;
-  location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  showMsg(`<strong>Correo preparado</strong> en tu aplicación de email. Solo queda <strong>adjuntar el PDF descargado</strong>${fn?` (${fn})`:''} y enviarlo.`);
-};
+function updateDestEcho(){ const o=$('destino').selectedOptions[0]; if($('destEcho')) $('destEcho').textContent = o ? o.textContent : ''; }
 
 function bytesToB64(bytes){
   let bin=''; const chunk=0x8000;
@@ -531,7 +524,7 @@ Generada desde la herramienta de solicitudes de Urgencias. El PDF firmado va adj
     if(ok){
       showMsg(`<strong>✓ Enviado a ${destLabel}.</strong>${($('para').value||'').trim()?' Has recibido una copia en tu correo.':''}`);
     }else{
-      showMsg(`<strong>No se pudo enviar.</strong> ${err||'Revisa el cartero o el token.'} Mientras tanto puedes usar «Descargar PDF» o «Preparar correo».`);
+      showMsg(`<strong>No se pudo enviar.</strong> ${err||'Revisa el cartero o el token.'} Mientras tanto puedes usar «Descargar PDF».`);
     }
   }catch(e){
     showMsg(`<strong>No se pudo confirmar el envío.</strong> Comprueba si ha llegado; si no, dímelo. (Detalle: ${e}.) También puedes usar «Descargar PDF».`);
@@ -551,9 +544,9 @@ $('btnReset').onclick=()=>{
   $('sueltosList').innerHTML=''; addSueltoRow();
   setMode('periodos');
   $('previewFrame').style.display='none'; $('emptyState').style.display='grid';
-  $('btnDownload').disabled=true; $('btnFirmar').disabled=true; $('btnEnviar').disabled=true; $('btnMail').disabled=true;
-  $('previewStatus').textContent='Sin generar';
-  $('msg').hidden=true; $('para').value=''; if($('destino')) $('destino').selectedIndex=0;
+  $('btnDownload').disabled=true; $('btnFirmar').disabled=true; $('btnEnviar').disabled=true;
+  $('sendBar').hidden=true; $('previewStatus').textContent='Sin generar';
+  $('msg').hidden=true; $('para').value=''; if($('destino')){ $('destino').selectedIndex=0; updateDestEcho(); }
   sigClearAll();
 };
 
