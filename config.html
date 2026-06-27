@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración — Solicitudes de Permisos · Urgencias HUJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#127A82;
+    --teal-dark:#0E5F66;
+    --teal-light:#1A9099;
+    --teal-vlight:#D4ECEE;
+    --junta:#007932;
+    --accent:#1B3D6E;
+    --text:#2e2925;
+    --text2:#555559;
+    --border:#9b9b9a;
+    --bg-subtle:#f5f5f5;
+    --danger:#b3261e;
+    --ok:#1b7e3c;
+    --font:'Noto Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font);
+    color:var(--text);
+    background:var(--bg-subtle);
+    line-height:1.55;
+    font-size:16px;
+  }
+  .topbar{height:6px;background:var(--junta)}
+  header{
+    background:#fff;
+    padding:1rem 1.1rem;
+    border-bottom:1px solid #e3e3e3;
+  }
+  header h1{
+    margin:0;
+    font-size:1.25rem;
+    font-weight:700;
+    color:var(--teal);
+    line-height:1.2;
+  }
+  header p{
+    margin:.2rem 0 0;
+    font-size:.85rem;
+    color:var(--text2);
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:1.1rem}
+  .card{
+    background:#fff;
+    border:1px solid #e3e3e3;
+    border-radius:10px;
+    padding:1.1rem;
+    margin-bottom:1.1rem;
+  }
+  .card h2{
+    margin:0 0 .2rem;
+    font-size:1.05rem;
+    color:var(--teal);
+    font-weight:700;
+  }
+  .card .hint{
+    margin:0 0 .9rem;
+    font-size:.82rem;
+    color:var(--text2);
+  }
+  label{
+    display:block;
+    font-size:.8rem;
+    font-weight:600;
+    color:var(--text2);
+    margin-bottom:.3rem;
+  }
+  input[type=text],input[type=email],input[type=password]{
+    width:100%;
+    padding:.7rem .75rem;
+    font-family:var(--font);
+    font-size:1rem;
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    background:#fff;
+  }
+  input:focus{outline:2px solid var(--teal-light);outline-offset:1px;border-color:var(--teal)}
+  .email-row{display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center}
+  .email-row input{flex:1}
+  .btn{
+    font-family:var(--font);
+    font-size:.95rem;
+    font-weight:600;
+    border:none;
+    border-radius:8px;
+    padding:.7rem 1.1rem;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-primary{background:var(--teal);color:#fff}
+  .btn-primary:hover{background:var(--teal-dark)}
+  .btn-ghost{background:var(--teal-vlight);color:var(--teal-dark)}
+  .btn-ghost:hover{background:#bfe2e5}
+  .btn-icon{
+    background:#f0e6e5;color:var(--danger);
+    border:none;border-radius:8px;
+    width:42px;height:42px;font-size:1.1rem;cursor:pointer;flex:0 0 auto;
+  }
+  .btn-icon:hover{background:#e8d2d0}
+  .btn-add{
+    background:none;border:1px dashed var(--border);color:var(--teal-dark);
+    width:100%;padding:.6rem;border-radius:8px;font-weight:600;cursor:pointer;
+    font-family:var(--font);font-size:.9rem;margin-top:.2rem;
+  }
+  .btn-add:hover{border-color:var(--teal);background:#f7fcfc}
+  .actions{margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap}
+  .callout{
+    background:var(--teal-vlight);
+    border-left:4px solid var(--teal);
+    padding:.8rem .9rem;
+    border-radius:0 8px 8px 0;
+    font-size:.85rem;
+    color:var(--text);
+    margin-bottom:1rem;
+  }
+  /* Firma */
+  .firma-tabs{display:flex;gap:.4rem;margin-bottom:.8rem}
+  .firma-tabs button{
+    flex:1;background:#fff;border:1px solid var(--border);
+    border-radius:8px;padding:.55rem;font-family:var(--font);font-weight:600;
+    font-size:.85rem;cursor:pointer;color:var(--text2);
+  }
+  .firma-tabs button.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .pane{display:none}
+  .pane.active{display:block}
+  canvas#pad{
+    width:100%;height:180px;border:1px solid var(--border);
+    border-radius:8px;background:#fff;touch-action:none;display:block;
+  }
+  .firma-preview{
+    border:1px solid #e3e3e3;border-radius:8px;background:#fafafa;
+    padding:.6rem;text-align:center;margin-top:.7rem;min-height:60px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .firma-preview img{max-width:100%;max-height:140px}
+  .firma-preview .empty{color:var(--text2);font-size:.85rem;font-style:italic}
+  /* PIN gate */
+  #gate .card{max-width:380px;margin:2.5rem auto 0}
+  /* Toast */
+  #toast{
+    position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);
+    background:var(--text);color:#fff;padding:.7rem 1.1rem;border-radius:8px;
+    font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;
+    max-width:90%;text-align:center;z-index:50;
+  }
+  #toast.show{opacity:1}
+  #toast.ok{background:var(--ok)}
+  #toast.err{background:var(--danger)}
+  .hidden{display:none!important}
+  .muted{color:var(--text2);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header>
+  <h1>Configuración del sistema de permisos</h1>
+  <p>UGC Urgencias Generales · Hospital Universitario de Jerez</p>
+</header>
+
+<div class="wrap">
+
+  <!-- ===== PUERTA PIN ===== -->
+  <div id="gate">
+    <div class="card">
+      <h2>Acceso restringido</h2>
+      <p class="hint">Introduce el PIN de configuración para editar correos y firma.</p>
+      <label for="pin">PIN</label>
+      <input type="password" id="pin" inputmode="numeric" autocomplete="off" placeholder="••••">
+      <div class="actions">
+        <button class="btn btn-primary" id="btnEntrar">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL ===== -->
+  <div id="panel" class="hidden">
+
+    <div class="callout">
+      Esta página es pública pero el PIN se valida en el servidor: sin él no se puede leer ni cambiar nada. Los cambios afectan al circuito en producción de inmediato.
+    </div>
+
+    <!-- Correos -->
+    <div class="card">
+      <h2>Correos de destino</h2>
+      <p class="hint">Puedes poner varias direcciones por rol. Se enviará a todas.</p>
+
+      <label>RRHH — destino final tras aprobar</label>
+      <div id="listRrhh"></div>
+      <button class="btn-add" id="addRrhh">+ Añadir correo de RRHH</button>
+
+      <div style="height:1rem"></div>
+
+      <label>Dirección / Revisor — recibe el aviso de cada solicitud</label>
+      <div id="listRevisor"></div>
+      <button class="btn-add" id="addRevisor">+ Añadir correo de Dirección</button>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="btnGuardarCorreos">Guardar correos</button>
+      </div>
+    </div>
+
+    <!-- Firma -->
+    <div class="card">
+      <h2>Firma de la Dirección</h2>
+      <p class="hint">Guarda la firma una vez. En cada aprobación podrá reutilizarse sin volver a firmar.</p>
+
+      <div class="firma-tabs">
+        <button class="active" data-pane="draw">Dibujar</button>
+        <button data-pane="upload">Subir imagen</button>
+      </div>
+
+      <div class="pane active" id="paneDraw">
+        <canvas id="pad"></canvas>
+        <div class="actions">
+          <button class="btn btn-ghost" id="btnLimpiar">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="pane" id="paneUpload">
+        <label for="file">Imagen de la firma (PNG con fondo transparente recomendado)</label>
+        <input type="text" id="file" class="hidden">
+        <input type="file" id="fileInput" accept="image/png,image/jpeg">
+      </div>
+
+      <div class="firma-preview" id="preview">
+        <span class="empty">Sin firma cargada en esta sesión</span>
+      </div>
+      <p class="muted" id="firmaEstado" style="margin:.5rem 0 0"></p>
+
+      <div class="actions">
+        <button class="btn btn-ghost" id="btnVerActual">Ver firma guardada</button>
+        <button class="btn btn-primary" id="btnGuardarFirma">Guardar firma</button>
+      </div>
+    </div>
+
+    <p class="muted" style="text-align:center">Urgencias HUJ · panel de configuración del circuito de permisos</p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ====== CONFIG DE CONEXIÓN ====== */
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5HyTYFczY4NZQ8vnbltpy4v5pWkkZmAvq7BtLcxe46lIMiMz/exec";
+const TOKEN = "urg-jerez-9f3k2x";
+
+let PIN = "";
+let firmaDataUrl = null;   // firma cargada en esta sesión (dibujada o subida)
+
+/* ====== UTIL ====== */
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type||'');
+  setTimeout(()=>{ t.className = (type||''); }, 2600);
+}
+
+// POST en text/plain para evitar preflight CORS con Apps Script
+async function call(payload){
+  const res = await fetch(ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(Object.assign({token:TOKEN}, payload))
+  });
+  const txt = await res.text();
+  try { return JSON.parse(txt); }
+  catch(e){ return {ok:false, msg:'Respuesta no válida del servidor: '+txt.slice(0,120)}; }
+}
+
+/* ====== PUERTA PIN ====== */
+document.getElementById('btnEntrar').addEventListener('click', entrar);
+document.getElementById('pin').addEventListener('keydown', e=>{ if(e.key==='Enter') entrar(); });
+
+async function entrar(){
+  const pin = document.getElementById('pin').value.trim();
+  if(!pin){ toast('Introduce el PIN','err'); return; }
+  toast('Comprobando…');
+  const r = await call({action:'config_get', pin});
+  if(!r.ok){ toast(r.msg||'PIN incorrecto','err'); return; }
+  PIN = pin;
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+  rellenarCorreos(r.rrhh||[], r.revisor||[]);
+  document.getElementById('firmaEstado').textContent =
+    r.hasFirma ? 'Hay una firma guardada en el servidor.' : 'No hay ninguna firma guardada todavía.';
+  initPad();
+}
+
+/* ====== CORREOS ====== */
+function emailRow(value){
+  const div = document.createElement('div');
+  div.className = 'email-row';
+  const inp = document.createElement('input');
+  inp.type = 'email'; inp.value = value||''; inp.placeholder = 'correo@dominio';
+  const btn = document.createElement('button');
+  btn.className = 'btn-icon'; btn.type='button'; btn.textContent = '✕';
+  btn.title = 'Quitar';
+  btn.addEventListener('click', ()=> div.remove());
+  div.appendChild(inp); div.appendChild(btn);
+  return div;
+}
+function rellenarCorreos(rrhh, revisor){
+  const lr = document.getElementById('listRrhh');
+  const lv = document.getElementById('listRevisor');
+  lr.innerHTML=''; lv.innerHTML='';
+  (rrhh.length?rrhh:['']).forEach(v=>lr.appendChild(emailRow(v)));
+  (revisor.length?revisor:['']).forEach(v=>lv.appendChild(emailRow(v)));
+}
+document.getElementById('addRrhh').addEventListener('click',
+  ()=> document.getElementById('listRrhh').appendChild(emailRow('')));
+document.getElementById('addRevisor').addEventListener('click',
+  ()=> document.getElementById('listRevisor').appendChild(emailRow('')));
+
+function leerCorreos(id){
+  return [...document.querySelectorAll('#'+id+' input')]
+    .map(i=>i.value.trim()).filter(Boolean);
+}
+document.getElementById('btnGuardarCorreos').addEventListener('click', async ()=>{
+  const rrhh = leerCorreos('listRrhh');
+  const revisor = leerCorreos('listRevisor');
+  if(!rrhh.length || !revisor.length){ toast('Cada rol necesita al menos un correo','err'); return; }
+  // validación simple
+  const mal = [...rrhh,...revisor].find(e=>!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  if(mal){ toast('Correo no válido: '+mal,'err'); return; }
+  toast('Guardando…');
+  const r = await call({action:'config_set', pin:PIN, rrhh, revisor});
+  toast(r.ok ? 'Correos guardados' : (r.msg||'Error al guardar'), r.ok?'ok':'err');
+});
+
+/* ====== FIRMA: pestañas ====== */
+document.querySelectorAll('.firma-tabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.firma-tabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('paneDraw').classList.toggle('active', b.dataset.pane==='draw');
+    document.getElementById('paneUpload').classList.toggle('active', b.dataset.pane==='upload');
+  });
+});
+
+/* ====== FIRMA: canvas ====== */
+let pad, ctx, drawing=false, hayTrazo=false;
+function initPad(){
+  pad = document.getElementById('pad');
+  // resolución real para nitidez
+  const rect = pad.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  pad.width = rect.width * ratio;
+  pad.height = rect.height * ratio;
+  ctx = pad.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.2; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle = '#1B3D6E';
+  const pos = e=>{
+    const r = pad.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x:p.clientX-r.left, y:p.clientY-r.top};
+  };
+  const start = e=>{ drawing=true; hayTrazo=true; const {x,y}=pos(e); ctx.beginPath(); ctx.moveTo(x,y); e.preventDefault(); };
+  const move = e=>{ if(!drawing) return; const {x,y}=pos(e); ctx.lineTo(x,y); ctx.stroke(); e.preventDefault(); };
+  const end = ()=>{ if(drawing){ drawing=false; capturarFirma(); } };
+  pad.addEventListener('mousedown',start); pad.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  pad.addEventListener('touchstart',start,{passive:false});
+  pad.addEventListener('touchmove',move,{passive:false});
+  pad.addEventListener('touchend',end);
+}
+function capturarFirma(){
+  if(!hayTrazo) return;
+  firmaDataUrl = pad.toDataURL('image/png');
+  mostrarPreview(firmaDataUrl);
+}
+document.getElementById('btnLimpiar').addEventListener('click', ()=>{
+  ctx.clearRect(0,0,pad.width,pad.height); hayTrazo=false; firmaDataUrl=null;
+  mostrarPreview(null);
+});
+
+/* ====== FIRMA: subir imagen ====== */
+document.getElementById('fileInput').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{ firmaDataUrl = ev.target.result; mostrarPreview(firmaDataUrl); };
+  reader.readAsDataURL(f);
+});
+
+function mostrarPreview(dataUrl){
+  const p = document.getElementById('preview');
+  if(dataUrl){ p.innerHTML = '<img src="'+dataUrl+'" alt="firma">'; }
+  else { p.innerHTML = '<span class="empty">Sin firma cargada en esta sesión</span>'; }
+}
+
+/* ====== FIRMA: ver guardada / guardar ====== */
+document.getElementById('btnVerActual').addEventListener('click', async ()=>{
+  toast('Cargando firma…');
+  const r = await call({action:'firma_get', pin:PIN});
+  if(r.ok && r.dataUrl){ mostrarPreview(r.dataUrl); firmaDataUrl = r.dataUrl; toast('Firma cargada','ok'); }
+  else { toast(r.msg||'No hay firma guardada','err'); }
+});
+document.getElementById('btnGuardarFirma').addEventListener('click', async ()=>{
+  if(!firmaDataUrl){ toast('Dibuja o sube una firma primero','err'); return; }
+  toast('Guardando firma…');
+  const r = await call({action:'firma_set', pin:PIN, dataUrl:firmaDataUrl});
+  if(r.ok){ toast('Firma guardada','ok'); document.getElementById('firmaEstado').textContent='Hay una firma guardada en el servidor.'; }
+  else { toast(r.msg||'Error al guardar la firma','err'); }
+});
+</script>
+</body>
+</html>
