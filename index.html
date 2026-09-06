@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta name="build" content="20260906-160528">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solicitud de vacaciones y asuntos particulares · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,6 +105,23 @@
   footer{margin-top:30px;font-size:12px;color:var(--gris);text-align:center}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<script>
+/* Autoactualización: si GitHub tiene una versión más nueva, recarga una vez (evita caché del hub) */
+(function(){
+  try{
+    if (location.protocol==='file:') return;
+    var mine=(document.querySelector('meta[name="build"]')||{}).content||'';
+    if (sessionStorage.getItem('autoupd_'+location.pathname)===mine) return;
+    var u=location.pathname+'?chk='+Date.now();
+    fetch(u,{cache:'no-store',headers:{'Range':'bytes=0-2500'}}).then(function(r){return r.text();}).then(function(t){
+      var m=t.match(/name="build" content="([^"]+)"/);
+      if(!m) return;
+      sessionStorage.setItem('autoupd_'+location.pathname,m[1]);
+      if(m[1]!==mine){ location.replace(location.pathname+location.search+(location.search?'&':'?')+'t='+Date.now()+location.hash); }
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 
