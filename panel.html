@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="build" content="20260906-160528">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de solicitudes · Urgencias HUJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +73,23 @@
   #toast.ok{background:var(--ok)}
   #toast.err{background:var(--danger)}
 </style>
+<script>
+/* Autoactualización: si GitHub tiene una versión más nueva, recarga una vez (evita caché del hub) */
+(function(){
+  try{
+    if (location.protocol==='file:') return;
+    var mine=(document.querySelector('meta[name="build"]')||{}).content||'';
+    if (sessionStorage.getItem('autoupd_'+location.pathname)===mine) return;
+    var u=location.pathname+'?chk='+Date.now();
+    fetch(u,{cache:'no-store',headers:{'Range':'bytes=0-2500'}}).then(function(r){return r.text();}).then(function(t){
+      var m=t.match(/name="build" content="([^"]+)"/);
+      if(!m) return;
+      sessionStorage.setItem('autoupd_'+location.pathname,m[1]);
+      if(m[1]!==mine){ location.replace(location.pathname+location.search+(location.search?'&':'?')+'t='+Date.now()+location.hash); }
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <div class="topbar"></div>
