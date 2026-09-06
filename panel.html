@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de solicitudes · Urgencias HUJ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#127A82; --teal-dark:#0E5F66; --teal-light:#1A9099; --teal-vlight:#D4ECEE;
+    --junta:#007932; --accent:#1B3D6E; --text:#2e2925; --text2:#555559;
+    --border:#9b9b9a; --bg-subtle:#f5f5f5; --danger:#b3261e; --ok:#1b7e3c; --warn:#b26a00;
+    --font:'Noto Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--font);color:var(--text);background:var(--bg-subtle);line-height:1.5;font-size:16px}
+  .topbar{height:6px;background:var(--junta)}
+  header{background:#fff;padding:1rem 1.1rem;border-bottom:1px solid #e3e3e3}
+  header h1{margin:0;font-size:1.25rem;font-weight:700;color:var(--teal);line-height:1.2}
+  header p{margin:.2rem 0 0;font-size:.85rem;color:var(--text2)}
+  .wrap{max-width:900px;margin:0 auto;padding:1.1rem}
+  .card{background:#fff;border:1px solid #e3e3e3;border-radius:10px;padding:1.1rem;margin-bottom:1.1rem}
+  .card h2{margin:0 0 .2rem;font-size:1.05rem;color:var(--teal);font-weight:700}
+  .card .hint{margin:0 0 .9rem;font-size:.82rem;color:var(--text2)}
+  label{display:block;font-size:.8rem;font-weight:600;color:var(--text2);margin-bottom:.3rem}
+  input[type=password],input[type=search]{width:100%;padding:.7rem .75rem;font-family:var(--font);font-size:1rem;border:1px solid var(--border);border-radius:8px;color:var(--text);background:#fff}
+  input:focus{outline:2px solid var(--teal-light);outline-offset:1px;border-color:var(--teal)}
+  .btn{font-family:var(--font);font-size:.95rem;font-weight:600;border:none;border-radius:8px;padding:.7rem 1.1rem;cursor:pointer;transition:background .15s}
+  .btn-primary{background:var(--teal);color:#fff}
+  .btn-primary:hover{background:var(--teal-dark)}
+  .btn-ghost{background:var(--teal-vlight);color:var(--teal-dark)}
+  .btn-ghost:hover{background:#bfe2e5}
+  .actions{margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap}
+  #gate .card{max-width:380px;margin:2.5rem auto 0}
+  .hidden{display:none!important}
+  .muted{color:var(--text2);font-size:.82rem}
+
+  /* Barra de filtros */
+  .bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.9rem}
+  .bar input[type=search]{flex:1;min-width:160px;padding:.55rem .7rem;font-size:.95rem}
+  .tabs{display:flex;gap:.3rem;flex-wrap:wrap}
+  .tabs button{background:#fff;border:1px solid var(--border);border-radius:999px;padding:.4rem .85rem;font-family:var(--font);font-weight:600;font-size:.82rem;cursor:pointer;color:var(--text2)}
+  .tabs button.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .tabs button .n{display:inline-block;margin-left:.35rem;background:rgba(0,0,0,.08);border-radius:999px;padding:0 .45rem;font-size:.75rem}
+  .tabs button.active .n{background:rgba(255,255,255,.25)}
+
+  /* Lista de solicitudes */
+  .item{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e3e3e3;border-left:5px solid var(--border);border-radius:10px;padding:.8rem .95rem;margin-bottom:.6rem;transition:box-shadow .15s}
+  .item:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .item.pendiente{border-left-color:var(--warn)}
+  .item.aprobada{border-left-color:var(--ok)}
+  .item.denegada{border-left-color:var(--danger)}
+  .item.devuelta{border-left-color:var(--accent)}
+  .item .top{display:flex;justify-content:space-between;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+  .item .nombre{font-weight:700;font-size:1rem}
+  .item .estado{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:.15rem .55rem;border-radius:999px;background:#eee;color:var(--text2);white-space:nowrap}
+  .item.pendiente .estado{background:#fff3e0;color:var(--warn)}
+  .item.aprobada .estado{background:#e6f4ea;color:var(--ok)}
+  .item.denegada .estado{background:#fbe9e7;color:var(--danger)}
+  .item.devuelta .estado{background:#e8eef7;color:var(--accent)}
+  .item .det{margin-top:.25rem;font-size:.88rem;color:var(--text)}
+  .item .det b{font-weight:600}
+  .item .meta{margin-top:.2rem;font-size:.78rem;color:var(--text2)}
+  .item .motivo{margin-top:.25rem;font-size:.82rem;color:var(--text2);font-style:italic}
+  .empty{text-align:center;color:var(--text2);padding:2rem 0;font-size:.9rem}
+
+  #toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);background:var(--text);color:#fff;padding:.7rem 1.1rem;border-radius:8px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center;z-index:50}
+  #toast.show{opacity:1}
+  #toast.ok{background:var(--ok)}
+  #toast.err{background:var(--danger)}
+</style>
+</head>
+<body>
+<div class="topbar"></div>
+<header>
+  <h1>Panel de solicitudes de permisos</h1>
+  <p>UGC Urgencias Generales · Hospital Universitario de Jerez</p>
+</header>
+
+<div class="wrap">
+
+  <!-- ===== PUERTA PIN ===== -->
+  <div id="gate">
+    <div class="card">
+      <h2>Acceso restringido</h2>
+      <p class="hint">Introduce el PIN para ver y revisar las solicitudes.</p>
+      <label for="pin">PIN</label>
+      <input type="password" id="pin" inputmode="numeric" autocomplete="off" placeholder="••••">
+      <div class="actions">
+        <button class="btn btn-primary" id="btnEntrar">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL ===== -->
+  <div id="panel" class="hidden">
+    <div class="bar">
+      <div class="tabs" id="tabs">
+        <button data-f="pendiente" class="active">Pendientes<span class="n" id="nPend">0</span></button>
+        <button data-f="resueltas">Resueltas<span class="n" id="nRes">0</span></button>
+        <button data-f="todas">Todas<span class="n" id="nTodas">0</span></button>
+      </div>
+      <input type="search" id="q" placeholder="Buscar por nombre…">
+      <button class="btn btn-ghost" id="btnRecargar" title="Recargar">↻</button>
+    </div>
+
+    <div id="lista"></div>
+
+    <p class="muted" style="text-align:center;margin-top:1.2rem">
+      Pulsa una solicitud para abrirla, firmarla y resolverla. · <span id="ultima"></span>
+    </p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ====== CONFIG DE CONEXIÓN ====== */
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5HyTYFczY4NZQ8vnbltpy4v5pWkkZmAvq7BtLcxe46lIMiMz/exec";
+const TOKEN = "urg-jerez-9f3k2x";
+const REVISAR_DEFAULT = "https://jcgo80.github.io/solicitud-sas/revisar.html";
+
+let PIN = sessionStorage.getItem('panel_pin') || "";
+let DATA = [];
+let REVISAR = REVISAR_DEFAULT;
+let filtro = 'pendiente';
+
+/* ====== UTIL ====== */
+function toast(msg, type){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + (type||'');
+  setTimeout(()=>{ t.className = (type||''); }, 2600);
+}
+async function call(payload){
+  const res = await fetch(ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(Object.assign({token:TOKEN}, payload))
+  });
+  const txt = await res.text();
+  try { return JSON.parse(txt); }
+  catch(e){ return {ok:false, msg:'Respuesta no válida del servidor: '+txt.slice(0,120)}; }
+}
+const esc = s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ====== PUERTA PIN ====== */
+document.getElementById('btnEntrar').addEventListener('click', ()=>entrar());
+document.getElementById('pin').addEventListener('keydown', e=>{ if(e.key==='Enter') entrar(); });
+
+async function entrar(pinPrevio){
+  const pin = pinPrevio || document.getElementById('pin').value.trim();
+  if(!pin){ toast('Introduce el PIN','err'); return; }
+  toast('Cargando…');
+  const r = await call({action:'listar', pin});
+  if(!r.ok){ toast(r.msg||'PIN incorrecto','err'); sessionStorage.removeItem('panel_pin'); return; }
+  PIN = pin; sessionStorage.setItem('panel_pin', pin);
+  if(r.revisar) REVISAR = r.revisar;
+  DATA = r.solicitudes || [];
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+  document.getElementById('ultima').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  pintar();
+}
+if(PIN) entrar(PIN);
+
+/* ====== LISTA ====== */
+function clase(estado){
+  const e = (estado||'').toLowerCase();
+  if(e.startsWith('aprob')) return 'aprobada';
+  if(e.startsWith('deneg')) return 'denegada';
+  if(e.startsWith('devuel')) return 'devuelta';
+  return 'pendiente';
+}
+function pintar(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const pend = DATA.filter(s=>clase(s.estado)==='pendiente');
+  document.getElementById('nPend').textContent = pend.length;
+  document.getElementById('nRes').textContent = DATA.length - pend.length;
+  document.getElementById('nTodas').textContent = DATA.length;
+
+  let lista = DATA;
+  if(filtro==='pendiente') lista = pend;
+  else if(filtro==='resueltas') lista = DATA.filter(s=>clase(s.estado)!=='pendiente');
+  if(q) lista = lista.filter(s=>(s.solicitante||'').toLowerCase().includes(q));
+
+  const cont = document.getElementById('lista');
+  if(!lista.length){
+    cont.innerHTML = '<div class="empty">' + (filtro==='pendiente' ? 'No hay solicitudes pendientes.' : 'Sin resultados.') + '</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(s=>{
+    const c = clase(s.estado);
+    return `<a class="item ${c}" href="${REVISAR}?id=${encodeURIComponent(s.id)}" target="_blank" rel="noopener">
+      <div class="top"><span class="nombre">${esc(s.solicitante)||'(sin nombre)'}</span><span class="estado">${esc(s.estado)||'pendiente'}</span></div>
+      <div class="det"><b>${esc(s.permiso)}</b> · ${esc(s.periodo)}</div>
+      <div class="meta">Enviada ${esc(s.fecha)}${s.resuelto ? ' · Resuelta ' + esc(s.resuelto) : ''}</div>
+      ${s.motivo && c!=='pendiente' ? `<div class="motivo">${esc(s.motivo)}</div>` : ''}
+    </a>`;
+  }).join('');
+}
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); filtro = b.dataset.f; pintar();
+});
+document.getElementById('q').addEventListener('input', pintar);
+document.getElementById('btnRecargar').addEventListener('click', ()=>entrar(PIN));
+</script>
+</body>
+</html>
