@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260906-160528">
+<meta name="build" content="20260910-170949">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Revisión de solicitud · Dirección · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -142,8 +142,19 @@
           <label><input type="radio" name="dictamen" value="desfavorable"> Desfavorable</label>
         </div>
         <div class="field"><label for="dirMotivo">Motivo (opcional)</label><textarea id="dirMotivo"></textarea></div>
-        <div class="field"><label for="dirFdo">Firmado (Dirección)</label><input id="dirFdo" type="text" value="La Dirección"></div>
         <div class="field">
+          <label>¿Quién firma?</label>
+          <div id="quienFirma" class="radio" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <span id="firmasHint" style="font-size:12.5px;color:var(--gris)">Cargando firmas guardadas…</span>
+          </div>
+          <div id="firmaPinBox" style="display:none;margin-top:6px">
+            <input id="firmaPin" type="password" inputmode="numeric" placeholder="PIN de jefatura" style="max-width:180px;display:inline-block">
+            <button type="button" class="btn ghost" id="firmaPinBtn" style="padding:8px 12px">Cargar firmas</button>
+          </div>
+          <div id="firmaPrev" style="display:none;margin-top:8px;border:1px dashed var(--linea);border-radius:8px;background:#fff;height:90px;align-items:center;justify-content:center;overflow:hidden"><img id="firmaPrevImg" alt="" style="max-height:80px;max-width:100%"></div>
+        </div>
+        <div class="field"><label for="dirFdo">Firmado (Dirección)</label><input id="dirFdo" type="text" value="La Dirección"></div>
+        <div class="field" id="sigDirField">
           <label>Firma de la Dirección <span style="font-weight:400;color:var(--gris)">— con el dedo</span></label>
           <div class="sigwrap"><canvas id="sigDir" class="sigpad"></canvas><button type="button" class="sigclear" id="sigDirClear">Borrar</button></div>
         </div>
@@ -267,7 +278,9 @@ async function buildDoc(conInforme){
     C(dictamen==='favorable'?'Check Box41':'Check Box4189');
     T('motivo1',$('dirMotivo').value);
     T('firmado2',$('dirFdo').value);
-    if(sigDirInk()){try{const png=await doc.embedPng($('sigDir').toDataURL('image/png'));drawSig(doc,png,200,292,112,144);}catch(e){}}
+    const fg=firmaElegida();
+    if(fg){try{const png=await doc.embedPng(fg.dataUrl);drawSig(doc,png,200,292,112,144);}catch(e){}}
+    else if(sigDirInk()){try{const png=await doc.embedPng($('sigDir').toDataURL('image/png'));drawSig(doc,png,200,292,112,144);}catch(e){}}
   }
   return await doc.save();
 }
@@ -288,6 +301,34 @@ let LAST_BYTES=null;
 function auto(){clearTimeout(t);t=setTimeout(preview,300);}
 document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',auto));
 
+/* ---- firmas guardadas de la Dirección (2 slots, con PIN) ---- */
+let FIRMAS=[];let _firmaSel=null; // 'dedo' | 1 | 2
+function firmaElegida(){const f=FIRMAS.find(x=>x.slot===_firmaSel&&x.tiene);return f||null;}
+function pintarFirmas(){
+  const box=$('quienFirma');box.innerHTML='';
+  const con=FIRMAS.filter(f=>f.tiene);
+  con.forEach(f=>{const l=document.createElement('label');l.innerHTML=`<input type="radio" name="quien" value="${f.slot}"> ${f.nombre||('Firma '+f.slot)}${f.cargo?` <span style="color:var(--gris);font-weight:400">— ${f.cargo}</span>`:''}`;box.appendChild(l);});
+  const l=document.createElement('label');l.innerHTML='<input type="radio" name="quien" value="dedo"> Firmar ahora con el dedo';box.appendChild(l);
+  if(!con.length){const h=document.createElement('span');h.style.cssText='font-size:12.5px;color:var(--gris)';h.textContent='No hay firmas guardadas (se configuran en config.html).';box.appendChild(h);}
+  box.querySelectorAll('input[name=quien]').forEach(r=>r.addEventListener('change',()=>{
+    _firmaSel=r.value==='dedo'?'dedo':Number(r.value);
+    const f=firmaElegida();
+    $('sigDirField').style.display=f?'none':'';
+    $('firmaPrev').style.display=f?'flex':'none';
+    if(f){$('firmaPrevImg').src=f.dataUrl;$('dirFdo').value=f.nombre||$('dirFdo').value;}
+    auto();
+  }));
+  const first=box.querySelector('input[name=quien]');if(first){first.checked=true;first.dispatchEvent(new Event('change'));}
+}
+async function cargarFirmas(pin){
+  const r=await api({token:TOKEN,action:'firmas_get',pin});
+  if(!r||!r.ok){localStorage.removeItem('panel_pin');$('firmasHint').textContent='Introduce el PIN para usar las firmas guardadas:';$('firmaPinBox').style.display='';return false;}
+  localStorage.setItem('panel_pin',pin);FIRMAS=r.firmas||[];$('firmaPinBox').style.display='none';pintarFirmas();return true;
+}
+$('firmaPinBtn').onclick=()=>{const p=$('firmaPin').value.trim();if(p)cargarFirmas(p);};
+$('firmaPin').addEventListener('keydown',e=>{if(e.key==='Enter')$('firmaPinBtn').click();});
+(function(){const p=localStorage.getItem('panel_pin');if(p)cargarFirmas(p);else{$('firmasHint').textContent='Introduce el PIN para usar las firmas guardadas:';$('firmaPinBox').style.display='';}})();
+
 /* ---- firma Dirección (pad) ---- */
 let _sigDirInk=false;function sigDirInk(){return _sigDirInk;}let sigDirClear=function(){_sigDirInk=false;};
 (function(){const cv=$('sigDir');if(!cv||!cv.getContext)return;let ctx;try{ctx=cv.getContext('2d');if(!ctx)return;}catch(e){return;}
@@ -303,9 +344,19 @@ let _sigDirInk=false;function sigDirInk(){return _sigDirInk;}let sigDirClear=fun
 })();
 
 /* ---- red ---- */
-async function api(payload){
-  const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow'});
-  try{return await res.json();}catch(_){return{ok:res.ok};}
+async function api(payload,intentos){
+  intentos=intentos||1;
+  for(let k=0;k<intentos;k++){
+    try{
+      const ac=new AbortController();const t=setTimeout(()=>ac.abort(),60000);
+      const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow',signal:ac.signal});
+      clearTimeout(t);
+      const txt=await res.text();
+      try{return JSON.parse(txt);}catch(_){}
+    }catch(_){}
+    if(k<intentos-1) await new Promise(r=>setTimeout(r,2500*(k+1)));
+  }
+  return {ok:false,error:'sin respuesta legible del servidor'};
 }
 function showMsg(html){const m=$('msg');m.hidden=false;m.innerHTML=html;}
 function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const b=$(id);if(b)b.disabled=true;});}
@@ -315,8 +366,9 @@ function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const
   const id=new URLSearchParams(location.search).get('id');
   if(!id){$('banner').className='banner no';$('banner').textContent='Falta el identificador de la solicitud en el enlace.';return;}
   STATE.id=id;
-  const r=await api({token:TOKEN,action:'cargar',id});
-  if(!r||!r.ok){$('banner').className='banner no';$('banner').textContent='No se pudo cargar la solicitud: '+((r&&r.error)||'error');return;}
+  $('banner').className='banner pend';$('banner').textContent='Cargando solicitud…';
+  const r=await api({token:TOKEN,action:'cargar',id},3);
+  if(!r||!r.ok||!r.estado){$('banner').className='banner no';$('banner').innerHTML='No se pudo cargar la solicitud ('+((r&&r.error)||'respuesta incompleta')+'). <button type="button" class="btn ghost" style="padding:6px 12px;margin-left:8px" onclick="location.reload()">Reintentar</button>';return;}
   STATE.estado=r.estado;STATE.data=r.data||{};
   setData(STATE.data);
   aplicarEstado(r.estado,r.solicitante);
@@ -337,7 +389,7 @@ function aplicarEstado(estado,solic){
 
 /* ---- acciones de revisión ---- */
 $('btnAprobar').onclick=async()=>{
-  if(!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
+  if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
   bloquear();showMsg('<strong>Aprobando y enviando…</strong>');
   const bytes=await buildDoc(true);
   const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'favorable',
