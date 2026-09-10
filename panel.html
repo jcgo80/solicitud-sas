@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260906-160528">
+<meta name="build" content="20260910-170949">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de solicitudes · Urgencias HUJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -146,7 +146,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5Hy
 const TOKEN = "urg-jerez-9f3k2x";
 const REVISAR_DEFAULT = "https://jcgo80.github.io/solicitud-sas/revisar.html";
 
-let PIN = sessionStorage.getItem('panel_pin') || "";
+let PIN = localStorage.getItem('panel_pin') || "";
 let DATA = [];
 let REVISAR = REVISAR_DEFAULT;
 let filtro = 'pendiente';
@@ -158,14 +158,15 @@ function toast(msg, type){
   setTimeout(()=>{ t.className = (type||''); }, 2600);
 }
 async function call(payload){
-  const res = await fetch(ENDPOINT, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify(Object.assign({token:TOKEN}, payload))
-  });
-  const txt = await res.text();
-  try { return JSON.parse(txt); }
-  catch(e){ return {ok:false, msg:'Respuesta no válida del servidor: '+txt.slice(0,120)}; }
+  for(let k=0;k<3;k++){
+    try{
+      const res = await fetch(ENDPOINT, {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body: JSON.stringify(Object.assign({token:TOKEN}, payload)),redirect:'follow'});
+      const txt = await res.text();
+      try { return JSON.parse(txt); } catch(e){}
+    }catch(e){}
+    if(k<2) await new Promise(r=>setTimeout(r,2000*(k+1)));
+  }
+  return {ok:false, msg:'Sin respuesta del servidor. Vuelve a intentarlo.'};
 }
 const esc = s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -178,8 +179,8 @@ async function entrar(pinPrevio){
   if(!pin){ toast('Introduce el PIN','err'); return; }
   toast('Cargando…');
   const r = await call({action:'listar', pin});
-  if(!r.ok){ toast(r.msg||'PIN incorrecto','err'); sessionStorage.removeItem('panel_pin'); return; }
-  PIN = pin; sessionStorage.setItem('panel_pin', pin);
+  if(!r.ok){ toast(r.msg||'PIN incorrecto','err'); localStorage.removeItem('panel_pin'); return; }
+  PIN = pin; localStorage.setItem('panel_pin', pin);
   if(r.revisar) REVISAR = r.revisar;
   DATA = r.solicitudes || [];
   document.getElementById('gate').classList.add('hidden');
