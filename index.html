@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260906-160528">
+<meta name="build" content="20260910-170949">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solicitud de vacaciones y asuntos particulares · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -289,10 +289,10 @@
       <div class="actions">
         <button type="button" class="btn primary" id="btnGen">Generar impreso</button>
         <button type="button" class="btn ghost" id="btnDownload" disabled>Descargar PDF</button>
-        <button type="button" class="btn ghost" id="btnFirmar" disabled>Firmar con certificado</button>
+        <button type="button" class="btn ghost" id="btnFirmar" disabled hidden>Firmar con certificado</button>
         <button type="button" class="btn ghost" id="btnReset">Limpiar</button>
       </div>
-      <p class="hint">El impreso se genera por completo en tu navegador: ningún dato sale de este equipo. Las secciones de <strong>Informe de la Dirección</strong> y <strong>Resolución</strong> quedan en blanco a propósito, para que las cumplimente la jefatura o la Dirección.</p>
+      <p class="hint">El impreso se rellena en tu navegador y, al pulsar <strong>Enviar a la jefatura</strong>, se remite a coordinación para su visto bueno. Las secciones de <strong>Informe de la Dirección</strong> y <strong>Resolución</strong> quedan en blanco a propósito: las cumplimenta la jefatura.</p>
     </div>
   </div>
 
@@ -599,32 +599,33 @@ $('btnEnviar').onclick=async()=>{
   d.firmaDataUrl = sigHasInk() ? $('sigPad').toDataURL('image/png') : '';
   const periodo=periodoTexto(d);
   const solicitante=`${(d.apellidos||'').trim()}, ${(d.nombre||'').trim()}`.replace(/^,\s*|,\s*$/g,'');
+  // Identificador generado aquí: permite comprobar si la solicitud llegó aunque la respuesta se pierda.
+  const id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,10));
   const payload={
-    token:TOKEN, action:'crear',
+    token:TOKEN, action:'crear', id,
     solicitante, dni:d.dni, permiso:perm, periodo, destino:d.destino, correoSolicitante:d.correoSolicitante,
-    pdfBase64: bytesToB64(b._bytes),
     data: d
   };
   $('btnEnviar').disabled=true; showMsg('<strong>Enviando a la jefatura…</strong>');
-  try{
-    const res = await fetch(ENDPOINT, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify(payload),
-      redirect:'follow'
-    });
-    let ok=false, err='';
-    try{ const j=await res.json(); ok=!!j.ok; err=j.error||''; }catch(_){ ok=res.ok; }
-    if(ok){
-      showMsg('<strong>✓ Enviada a la jefatura para su visto bueno.</strong> Cuando la aprueben recibirás el documento final firmado'+(d.correoSolicitante?' en tu correo.':' (indica tu correo arriba para recibirlo).'));
-    }else{
-      showMsg('<strong>No se pudo enviar.</strong> '+(err||'Revisa el cartero o el token.')+' Mientras tanto puedes usar «Descargar PDF».');
-    }
-  }catch(e){
-    showMsg('<strong>No se pudo confirmar el envío.</strong> Comprueba si la jefatura ha recibido el aviso; si no, dímelo. (Detalle: '+e+'.)');
-  }finally{
-    $('btnEnviar').disabled=false;
+  const okMsg='<strong>✓ Enviada a la jefatura para su visto bueno.</strong> Cuando la aprueben recibirás el documento final firmado'+(d.correoSolicitante?' en tu correo.':' (indica tu correo arriba para recibirlo).');
+  async function post(body,ms){
+    const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);
+    try{const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow',signal:ac.signal});
+      const txt=await res.text();try{return JSON.parse(txt);}catch(_){return null;}}
+    catch(_){return null;}finally{clearTimeout(t);}
   }
+  let r=await post(payload,60000);
+  if(r&&r.ok){ showMsg(okMsg); return; }
+  if(r&&r.error){ showMsg('<strong>No se pudo enviar.</strong> '+r.error+' Mientras tanto puedes usar «Descargar PDF».'); $('btnEnviar').disabled=false; return; }
+  // Sin respuesta legible: comprobar si el cartero la registró de todas formas.
+  showMsg('<strong>Comprobando el envío…</strong> La respuesta del servidor ha tardado; verificando que la solicitud se ha registrado.');
+  for(let k=0;k<4;k++){
+    await new Promise(res=>setTimeout(res,3000));
+    const c=await post({token:TOKEN,action:'cargar',id},20000);
+    if(c&&c.ok){ showMsg(okMsg); return; }
+  }
+  showMsg('<strong>No se ha podido confirmar el envío.</strong> Puede que haya llegado igualmente: antes de volver a enviar, pregunta en coordinación o espera unos minutos y usa el botón de nuevo. También puedes usar «Descargar PDF» y la vía tradicional.');
+  $('btnEnviar').disabled=false;
 };
 $('btnReset').onclick=()=>{
   document.querySelectorAll('input[type=text],input[type=date],textarea').forEach(i=>i.value='');
