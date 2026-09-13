@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260910-170949">
+<meta name="build" content="20260913-212104">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Revisión de solicitud · Dirección · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -279,7 +279,10 @@ async function buildDoc(conInforme){
     T('motivo1',$('dirMotivo').value);
     T('firmado2',$('dirFdo').value);
     const fg=firmaElegida();
-    if(fg){try{const png=await doc.embedPng(fg.dataUrl);drawSig(doc,png,200,292,112,144);}catch(e){}}
+    if(fg){
+      try{ const img=await embedFirma(doc,fg.dataUrl); drawSig(doc,img,200,292,112,144); }
+      catch(e){ alert('No se ha podido insertar la firma guardada en el PDF ('+e+').\n\nVuelve a guardarla en config.html o firma con el dedo.'); }
+    }
     else if(sigDirInk()){try{const png=await doc.embedPng($('sigDir').toDataURL('image/png'));drawSig(doc,png,200,292,112,144);}catch(e){}}
   }
   return await doc.save();
@@ -300,6 +303,23 @@ async function preview(){
 let LAST_BYTES=null;
 function auto(){clearTimeout(t);t=setTimeout(preview,300);}
 document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',auto));
+
+/* Inserta una firma sea PNG, JPG o cualquier imagen: último recurso, la repinta a PNG. */
+async function embedFirma(doc,dataUrl){
+  try{ return await doc.embedPng(dataUrl); }catch(e){}
+  try{ return await doc.embedJpg(dataUrl); }catch(e){}
+  const png=await aPng(dataUrl);
+  return await doc.embedPng(png);
+}
+function aPng(dataUrl){
+  return new Promise((res,rej)=>{
+    const im=new Image();
+    im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);res(c.toDataURL('image/png'));};
+    im.onerror=()=>rej(new Error('imagen ilegible'));
+    im.src=dataUrl;
+  });
+}
 
 /* ---- firmas guardadas de la Dirección (2 slots, con PIN) ---- */
 let FIRMAS=[];let _firmaSel=null; // 'dedo' | 1 | 2
