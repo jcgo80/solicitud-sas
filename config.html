@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260910-170949">
+<meta name="build" content="20260912-073852">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Configuración · Solicitudes Urgencias HUJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -174,7 +174,7 @@ function initPads(){
       if(PADS[n].hasInk()) payload.dataUrl=PADS[n].dataUrl();
       else if(sl.dataset.upload) payload.dataUrl=sl.dataset.upload;
       const r=await call(payload);
-      if(!r.ok){toast(r.msg||'Error','err');return;}
+      if(!r.ok){toast(r.error||r.msg||'Error','err');return;}
       toast('Firma '+n+' guardada','ok'); delete sl.dataset.upload; PADS[n].clear(); await cargarFirmas();
     };
     sl.querySelector('.borrar').onclick=async()=>{
@@ -185,7 +185,14 @@ function initPads(){
   });
 }
 async function cargarFirmas(){
-  const r=await call({action:'firmas_get'}); if(!r.ok){toast(r.msg||'Error al cargar firmas','err');return;}
+  const r=await call({action:'firmas_get'});
+  if(!r.ok){
+    const e=(r.error||r.msg||'');
+    if(/desconocida/i.test(e)){
+      alert('El cartero publicado está anticuado y no admite dos firmas.\n\nPublica Code_v6.gs (v6.4) en Apps Script: Implementar → Gestionar implementaciones → lápiz → Nueva versión → Implementar.\n\nHasta entonces las firmas NO se guardan correctamente.');
+    }
+    toast(e||'Error al cargar firmas','err');return;
+  }
   (r.firmas||[]).forEach(f=>{
     const sl=document.querySelector('.slot[data-slot="'+f.slot+'"]'); if(!sl)return;
     sl.querySelector('.nombre').value=f.nombre||''; sl.querySelector('.cargo').value=f.cargo||'';

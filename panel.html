@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260910-170949">
+<meta name="build" content="20260912-073852">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de solicitudes · Urgencias HUJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68,6 +68,8 @@
   .item .motivo{margin-top:.25rem;font-size:.82rem;color:var(--text2);font-style:italic}
   .empty{text-align:center;color:var(--text2);padding:2rem 0;font-size:.9rem}
 
+  .st{display:inline-block;margin-top:.3rem;font-size:.8rem;padding:.15rem .6rem;border-radius:999px;background:#eee;color:var(--text2)}
+  .st.load{background:#fff3e0;color:var(--warn)} .st.ok{background:#e6f4ea;color:var(--ok)} .st.err{background:#fbe9e7;color:var(--danger)}
   #toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);background:var(--text);color:#fff;padding:.7rem 1.1rem;border-radius:8px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center;z-index:50}
   #toast.show{opacity:1}
   #toast.ok{background:var(--ok)}
@@ -133,7 +135,7 @@
     <div id="lista"></div>
 
     <p class="muted" style="text-align:center;margin-top:1.2rem">
-      Pulsa una solicitud para abrirla, firmarla y resolverla. · <span id="ultima"></span>
+      Pulsa una solicitud para abrirla, firmarla y resolverla.<br><span id="ultima" class="st"></span>
     </p>
   </div>
 </div>
@@ -160,11 +162,13 @@ function toast(msg, type){
 async function call(payload){
   for(let k=0;k<3;k++){
     try{
-      const res = await fetch(ENDPOINT, {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body: JSON.stringify(Object.assign({token:TOKEN}, payload)),redirect:'follow'});
+      const ac=new AbortController(); const t=setTimeout(()=>ac.abort(), 20000);
+      const res = await fetch(ENDPOINT, {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body: JSON.stringify(Object.assign({token:TOKEN}, payload)),redirect:'follow',signal:ac.signal});
+      clearTimeout(t);
       const txt = await res.text();
       try { return JSON.parse(txt); } catch(e){}
     }catch(e){}
-    if(k<2) await new Promise(r=>setTimeout(r,2000*(k+1)));
+    if(k<2) await new Promise(r=>setTimeout(r,1500*(k+1)));
   }
   return {ok:false, msg:'Sin respuesta del servidor. Vuelve a intentarlo.'};
 }
@@ -176,17 +180,40 @@ document.getElementById('pin').addEventListener('keydown', e=>{ if(e.key==='Ente
 
 async function entrar(pinPrevio){
   const pin = pinPrevio || document.getElementById('pin').value.trim();
-  if(!pin){ toast('Introduce el PIN','err'); return; }
-  toast('Cargando…');
+  if(!pin){ estado('Introduce el PIN','err'); return; }
+  PIN = pin;
+  // 1) Pintar YA lo que había guardado en este dispositivo (carga instantánea).
+  const cache = leerCache();
+  if(cache){
+    DATA = cache.solicitudes || []; REVISAR = cache.revisar || REVISAR;
+    abrirPanel(); pintar();
+    estado('Actualizando…','load');
+  } else {
+    estado('Conectando con el servidor…','load');
+  }
+  // 2) Pedir la lista al cartero en segundo plano.
   const r = await call({action:'listar', pin});
-  if(!r.ok){ toast(r.msg||'PIN incorrecto','err'); localStorage.removeItem('panel_pin'); return; }
-  PIN = pin; localStorage.setItem('panel_pin', pin);
+  if(!r.ok){
+    if(!cache){ estado(r.msg||'PIN incorrecto','err'); localStorage.removeItem('panel_pin'); return; }
+    estado('Sin conexión con el servidor. Mostrando la última copia guardada.','err');
+    return;
+  }
+  localStorage.setItem('panel_pin', pin);
   if(r.revisar) REVISAR = r.revisar;
   DATA = r.solicitudes || [];
+  guardarCache({solicitudes:DATA, revisar:REVISAR, ts:Date.now()});
+  abrirPanel(); pintar();
+  estado('Actualizado ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}), 'ok');
+}
+function abrirPanel(){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('panel').classList.remove('hidden');
-  document.getElementById('ultima').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
-  pintar();
+}
+function leerCache(){ try{ const c=JSON.parse(localStorage.getItem('panel_cache')||'null'); return (c&&c.solicitudes)?c:null; }catch(e){ return null; } }
+function guardarCache(c){ try{ localStorage.setItem('panel_cache', JSON.stringify(c)); }catch(e){} }
+function estado(txt, tipo){
+  const e = document.getElementById('ultima');
+  e.textContent = txt; e.className = 'st ' + (tipo||'');
 }
 if(PIN) entrar(PIN);
 
