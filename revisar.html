@@ -2,7 +2,27 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-104821">
+<meta name="build" content="20260914-110816">
+<script>
+/* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
+   de la página (1,5 MB). Así la espera del servidor y la carga del archivo
+   ocurren a la vez en vez de una detrás de otra. */
+(function(){
+  try{
+    var id=new URLSearchParams(location.search).get('id');
+    if(!id) return;
+    window.__preCarga = (function(){
+      var ac=new AbortController(); setTimeout(function(){ac.abort();},20000);
+      return fetch("https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5HyTYFczY4NZQ8vnbltpy4v5pWkkZmAvq7BtLcxe46lIMiMz/exec",
+        {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+         body:JSON.stringify({token:"urg-jerez-9f3k2x",action:'cargar',id:id}),redirect:'follow',signal:ac.signal})
+        .then(function(r){return r.text();})
+        .then(function(t){ try{return JSON.parse(t);}catch(e){return null;} })
+        .catch(function(){return null;});
+    })();
+  }catch(e){}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Revisión de solicitud · Dirección · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -402,7 +422,9 @@ function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const
     const seg=Math.round((Date.now()-t0)/1000);
     if(seg>=4) $('banner').textContent='Cargando solicitud… ('+seg+' s) El servidor de Google tarda unos segundos en despertar.';
   },1000);
-  const r=await api({token:TOKEN,action:'cargar',id},3);
+  let r=null;
+  if(window.__preCarga){ r=await window.__preCarga; }          // ya iba lanzada desde la cabecera
+  if(!r||!r.ok){ r=await api({token:TOKEN,action:'cargar',id},3); }
   clearInterval(reloj);
   if(!r||!r.ok||!r.estado){$('banner').className='banner no';$('banner').innerHTML='No se pudo cargar la solicitud ('+((r&&r.error)||'respuesta incompleta')+'). <button type="button" class="btn ghost" style="padding:6px 12px;margin-left:8px" onclick="location.reload()">Reintentar</button>';return;}
   STATE.estado=r.estado;STATE.data=r.data||{};
