@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260913-215433">
+<meta name="build" content="20260914-104821">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Revisión de solicitud · Dirección · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -353,7 +353,11 @@ async function cargarFirmas(pin){
 }
 $('firmaPinBtn').onclick=()=>{const p=$('firmaPin').value.trim();if(p)cargarFirmas(p);};
 $('firmaPin').addEventListener('keydown',e=>{if(e.key==='Enter')$('firmaPinBtn').click();});
-(function(){const p=localStorage.getItem('panel_pin');if(p)cargarFirmas(p);else{$('firmasHint').textContent='Introduce el PIN para usar las firmas guardadas:';$('firmaPinBox').style.display='';}})();
+function arrancarFirmas(){
+  const p=localStorage.getItem('panel_pin');
+  if(p) cargarFirmas(p);
+  else { $('firmasHint').textContent='Introduce el PIN para usar las firmas guardadas:'; $('firmaPinBox').style.display=''; }
+}
 
 /* ---- firma Dirección (pad) ---- */
 let _sigDirInk=false;function sigDirInk(){return _sigDirInk;}let sigDirClear=function(){_sigDirInk=false;};
@@ -374,13 +378,13 @@ async function api(payload,intentos){
   intentos=intentos||1;
   for(let k=0;k<intentos;k++){
     try{
-      const ac=new AbortController();const t=setTimeout(()=>ac.abort(),60000);
+      const ac=new AbortController();const t=setTimeout(()=>ac.abort(),20000);
       const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow',signal:ac.signal});
       clearTimeout(t);
       const txt=await res.text();
       try{return JSON.parse(txt);}catch(_){}
     }catch(_){}
-    if(k<intentos-1) await new Promise(r=>setTimeout(r,2500*(k+1)));
+    if(k<intentos-1) await new Promise(r=>setTimeout(r,1200*(k+1)));
   }
   return {ok:false,error:'sin respuesta legible del servidor'};
 }
@@ -393,12 +397,24 @@ function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const
   if(!id){$('banner').className='banner no';$('banner').textContent='Falta el identificador de la solicitud en el enlace.';return;}
   STATE.id=id;
   $('banner').className='banner pend';$('banner').textContent='Cargando solicitud…';
+  const t0=Date.now();
+  const reloj=setInterval(()=>{
+    const seg=Math.round((Date.now()-t0)/1000);
+    if(seg>=4) $('banner').textContent='Cargando solicitud… ('+seg+' s) El servidor de Google tarda unos segundos en despertar.';
+  },1000);
   const r=await api({token:TOKEN,action:'cargar',id},3);
+  clearInterval(reloj);
   if(!r||!r.ok||!r.estado){$('banner').className='banner no';$('banner').innerHTML='No se pudo cargar la solicitud ('+((r&&r.error)||'respuesta incompleta')+'). <button type="button" class="btn ghost" style="padding:6px 12px;margin-left:8px" onclick="location.reload()">Reintentar</button>';return;}
   STATE.estado=r.estado;STATE.data=r.data||{};
   setData(STATE.data);
   aplicarEstado(r.estado,r.solicitante);
+  if(!STATE.medicoFirma){
+    const w=document.createElement('div'); w.className='banner no'; w.style.marginTop='-8px';
+    w.textContent='Aviso: esta solicitud no conserva la firma del solicitante, así que el impreso saldrá sin ella. (Ocurría con las resueltas antes de la corrección del 13/09.)';
+    $('banner').insertAdjacentElement('afterend', w);
+  }
   preview();
+  arrancarFirmas();   // después de la solicitud: evita que las dos peticiones se encolen
 })();
 
 function aplicarEstado(estado,solic){
@@ -430,20 +446,23 @@ function bloquearFormulario(v){
 }
 
 /* ---- acciones de revisión ---- */
+/* Fusiona lo editado con el JSON original: así no se pierden campos que esta
+   pantalla no muestra (firma del solicitante, aceptación del aviso de datos…). */
+function datosCompletos(){ return Object.assign({}, STATE.data || {}, collect()); }
 function sinAvisarActivo(){const c=$('sinAvisar');return !!(c&&!$('sinAvisarField').hidden&&c.checked);}
 $('btnAprobar').onclick=async()=>{
   if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
   bloquear();showMsg('<strong>Aprobando y enviando…</strong>');
   const bytes=await buildDoc(true);
   const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'favorable',
-    pdfBase64:bytesToB64(bytes),filename:'Solicitud_aprobada.pdf',motivo:$('dirMotivo').value,data:collect(),sinAvisar:sinAvisarActivo()});
+    pdfBase64:bytesToB64(bytes),filename:'Solicitud_aprobada.pdf',motivo:$('dirMotivo').value,data:datosCompletos(),sinAvisar:sinAvisarActivo()});
   finRes(r,sinAvisarActivo()?'✓ Documento corregido y reenviado a RRHH. No se ha escrito al trabajador.':'✓ Aprobada, firmada y enviada a RRHH. Confirmación y copia al trabajador.');
 };
 $('btnProponer').onclick=async()=>{
   bloquear();showMsg('<strong>Enviando propuesta al trabajador…</strong>');
   const d=collect();
   const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'proponer',
-    periodo:periodoTexto(d),motivo:$('dirMotivo').value,data:d,sinAvisar:sinAvisarActivo()});
+    periodo:periodoTexto(d),motivo:$('dirMotivo').value,data:datosCompletos(),sinAvisar:sinAvisarActivo()});
   finRes(r,'✓ Días propuestos enviados al trabajador. Cuando le encajen, hará una nueva solicitud.');
 };
 $('btnDenegar').onclick=async()=>{
