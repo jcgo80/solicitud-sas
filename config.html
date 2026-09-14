@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260914-110527">
+<meta name="build" content="20260914-111623">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Configuración · Solicitudes Urgencias HUJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -263,7 +263,7 @@ function normalizar(dataUrl, quitarFondo){
 }
 
 async function cargarFirmas(){
-  const r=await call({action:'firmas_get'});
+  const r=await call({action:'firmas_get',conImagen:true});
   if(!r.ok){
     const e=(r.error||r.msg||'');
     if(/desconocida/i.test(e)){
