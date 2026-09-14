@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-111712">
+<meta name="build" content="20260914-112724">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -20,6 +20,7 @@
         .then(function(t){ try{return JSON.parse(t);}catch(e){return null;} })
         .catch(function(){return null;});
     })();
+    window.__prePdf = fetch("solicitud.pdf",{cache:"force-cache"}).then(function(r){return r.arrayBuffer();}).catch(function(){return null;});
   }catch(e){}
 })();
 </script>
@@ -239,6 +240,7 @@ let PDF_BYTES = null;
 // una vez y lo reutiliza en las dos páginas gracias a su caché.
 async function getPdfBytes(){
   if(PDF_BYTES) return PDF_BYTES;
+  if(window.__prePdf){ const buf=await window.__prePdf; if(buf){ PDF_BYTES=new Uint8Array(buf); return PDF_BYTES; } }
   const r = await fetch(PDF_URL, {cache:'force-cache'});
   if(!r.ok) throw new Error('No se pudo cargar el impreso oficial ('+r.status+')');
   PDF_BYTES = new Uint8Array(await r.arrayBuffer());
@@ -443,6 +445,20 @@ async function api(payload,intentos){
 function showMsg(html){const m=$('msg');m.hidden=false;m.innerHTML=html;}
 function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const b=$(id);if(b)b.disabled=true;});}
 
+/* ---- diagnóstico: abrir la página con &debug=1 muestra los tiempos ---- */
+const DEBUG=new URLSearchParams(location.search).get('debug')==='1';
+const T_INI=Date.now();
+const MARCAS=[];
+function marca(nombre){
+  MARCAS.push([nombre, Date.now()-T_INI]);
+  if(!DEBUG) return;
+  let c=document.getElementById('debugBox');
+  if(!c){ c=document.createElement('div'); c.id='debugBox';
+    c.style.cssText='position:fixed;right:8px;bottom:8px;z-index:999;background:#111;color:#0f0;font:12px/1.4 monospace;padding:8px 10px;border-radius:8px;max-width:280px;white-space:pre';
+    document.body.appendChild(c); }
+  c.textContent=MARCAS.map(m=>m[1].toString().padStart(6)+' ms  '+m[0]).join('\n');
+}
+
 /* ---- arranque: cargar por id ---- */
 (async function start(){
   const id=new URLSearchParams(location.search).get('id');
@@ -458,6 +474,7 @@ function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const
   if(window.__preCarga){ r=await window.__preCarga; }          // ya iba lanzada desde la cabecera
   if(!r||!r.ok){ r=await api({token:TOKEN,action:'cargar',id},3); }
   clearInterval(reloj);
+  marca('solicitud recibida');
   if(!r||!r.ok||!r.estado){$('banner').className='banner no';$('banner').innerHTML='No se pudo cargar la solicitud ('+((r&&r.error)||'respuesta incompleta')+'). <button type="button" class="btn ghost" style="padding:6px 12px;margin-left:8px" onclick="location.reload()">Reintentar</button>';return;}
   STATE.estado=r.estado;STATE.data=r.data||{};
   setData(STATE.data);
@@ -467,7 +484,8 @@ function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const
     w.textContent='Aviso: esta solicitud no conserva la firma del solicitante, así que el impreso saldrá sin ella. (Ocurría con las resueltas antes de la corrección del 13/09.)';
     $('banner').insertAdjacentElement('afterend', w);
   }
-  preview();
+  marca('datos en pantalla');
+  preview().then(()=>marca('impreso dibujado'));
   arrancarFirmas();   // después de la solicitud: evita que las dos peticiones se encolen
 })();
 

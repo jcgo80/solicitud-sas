@@ -2,11 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260914-112502">
+<meta name="build" content="20260914-112724">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de solicitudes · Urgencias HUJ</title>
-<link rel="prefetch" href="solicitud.pdf" as="fetch" crossorigin="anonymous">
-<!-- Se adelanta la descarga del impreso oficial: cuando abras una solicitud ya estará en el navegador -->
+<script>
+/* Adelanta la descarga del impreso oficial con la MISMA petición que luego usa
+   la página, para que comparta caché (un <link rel=prefetch> se descargaba aparte). */
+try{ fetch("solicitud.pdf",{cache:"force-cache"}); }catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
