@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-113051">
+<meta name="build" content="20260914-113516">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -11,15 +11,20 @@
   try{
     var id=new URLSearchParams(location.search).get('id');
     if(!id) return;
-    window.__preCarga = (function(){
+    var EP="https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5HyTYFczY4NZQ8vnbltpy4v5pWkkZmAvq7BtLcxe46lIMiMz/exec";
+    var pin=''; try{ pin=localStorage.getItem('panel_pin')||''; }catch(e){}
+    function pedir(cuerpo){
       var ac=new AbortController(); setTimeout(function(){ac.abort();},20000);
-      return fetch("https://script.google.com/macros/s/AKfycbySRCmnKCNxOZLgB0uq5HyTYFczY4NZQ8vnbltpy4v5pWkkZmAvq7BtLcxe46lIMiMz/exec",
-        {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-         body:JSON.stringify({token:"urg-jerez-9f3k2x",action:'cargar',id:id}),redirect:'follow',signal:ac.signal})
+      return fetch(EP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify(cuerpo),redirect:'follow',signal:ac.signal})
         .then(function(r){return r.text();})
         .then(function(t){ try{return JSON.parse(t);}catch(e){return null;} })
         .catch(function(){return null;});
-    })();
+    }
+    // Las dos peticiones salen A LA VEZ, sin esperar a que cargue el resto de la página.
+    window.__preCarga  = pedir({token:"urg-jerez-9f3k2x",action:'cargar',id:id,pin:pin});
+    var yaTengo=false; try{ yaTengo=!!localStorage.getItem('firma_sol_'+id); }catch(e){}
+    window.__preFirmaSol = yaTengo ? null : pedir({token:"urg-jerez-9f3k2x",action:'firma_sol',id:id});
     window.__prePdf = fetch("solicitud.pdf",{cache:"force-cache"}).then(function(r){return r.arrayBuffer();}).catch(function(){return null;});
   }catch(e){}
 })();
@@ -364,7 +369,8 @@ function traerFirmaSolicitante(tiene){
   const k='firma_sol_'+STATE.id;
   let local=''; try{ local=localStorage.getItem(k)||''; }catch(e){}
   if(local){ STATE.medicoFirma=local; marca('firma solicitante (del dispositivo)'); preview(); return; }
-  FIRMA_SOL=api({token:TOKEN,action:'firma_sol',id:STATE.id},2).then(r=>{
+  const pedida = window.__preFirmaSol || api({token:TOKEN,action:'firma_sol',id:STATE.id},2);
+  FIRMA_SOL=Promise.resolve(pedida).then(r=>{
     if(r&&r.ok&&r.dataUrl){
       STATE.medicoFirma=r.dataUrl;
       try{ localStorage.setItem(k,r.dataUrl); }catch(e){}
@@ -426,7 +432,11 @@ async function cargarFirmas(pin){
 }
 $('firmaPinBtn').onclick=()=>{const p=$('firmaPin').value.trim();if(p)cargarFirmas(p);};
 $('firmaPin').addEventListener('keydown',e=>{if(e.key==='Enter')$('firmaPinBtn').click();});
-function arrancarFirmas(){
+function arrancarFirmas(listaYaRecibida){
+  if(listaYaRecibida && listaYaRecibida.length){        // vino dentro de 'cargar': no hace falta otra petición
+    FIRMAS=listaYaRecibida; $('firmaPinBox').style.display='none'; $('firmasHint').textContent='';
+    marca('firmas (venían con la solicitud)'); pintarFirmas(); return;
+  }
   const p=localStorage.getItem('panel_pin');
   if(p) cargarFirmas(p);
   else { $('firmasHint').textContent='Introduce el PIN para usar las firmas guardadas:'; $('firmaPinBox').style.display=''; }
@@ -507,7 +517,7 @@ function marca(nombre){
   marca('datos en pantalla');
   traerFirmaSolicitante(r.tieneFirmaSol);
   preview().then(()=>marca('impreso dibujado'));
-  arrancarFirmas();   // después de la solicitud: evita que las dos peticiones se encolen
+  arrancarFirmas(r.firmas);   // después de la solicitud: evita que las dos peticiones se encolen
 })();
 
 function aplicarEstado(estado,solic){
