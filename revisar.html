@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-113516">
+<meta name="build" content="20260914-114221">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -22,7 +22,7 @@
         .catch(function(){return null;});
     }
     // Las dos peticiones salen A LA VEZ, sin esperar a que cargue el resto de la página.
-    window.__preCarga  = pedir({token:"urg-jerez-9f3k2x",action:'cargar',id:id,pin:pin});
+    window.__preCarga  = pedir({token:"urg-jerez-9f3k2x",action:'cargar',id:id,pin:pin,cliente:2});
     var yaTengo=false; try{ yaTengo=!!localStorage.getItem('firma_sol_'+id); }catch(e){}
     window.__preFirmaSol = yaTengo ? null : pedir({token:"urg-jerez-9f3k2x",action:'firma_sol',id:id});
     window.__prePdf = fetch("solicitud.pdf",{cache:"force-cache"}).then(function(r){return r.arrayBuffer();}).catch(function(){return null;});
@@ -502,11 +502,11 @@ function marca(nombre){
   },1000);
   let r=null;
   if(window.__preCarga){ r=await window.__preCarga; }          // ya iba lanzada desde la cabecera
-  if(!r||!r.ok){ r=await api({token:TOKEN,action:'cargar',id},3); }
+  if(!r||!r.ok){ r=await api({token:TOKEN,action:'cargar',id,cliente:2},3); }
   clearInterval(reloj);
   marca('solicitud recibida');
   if(!r||!r.ok||!r.estado){$('banner').className='banner no';$('banner').innerHTML='No se pudo cargar la solicitud ('+((r&&r.error)||'respuesta incompleta')+'). <button type="button" class="btn ghost" style="padding:6px 12px;margin-left:8px" onclick="location.reload()">Reintentar</button>';return;}
-  STATE.estado=r.estado;STATE.data=r.data||{};
+  STATE.estado=r.estado;STATE.data=r.data||{};STATE.tieneFirmaSol=(r.tieneFirmaSol===true);
   setData(STATE.data);
   aplicarEstado(r.estado,r.solicitante);
   if(r.tieneFirmaSol===false){
@@ -515,7 +515,8 @@ function marca(nombre){
     $('banner').insertAdjacentElement('afterend', w);
   }
   marca('datos en pantalla');
-  traerFirmaSolicitante(r.tieneFirmaSol);
+  if(STATE.data.firmaDataUrl){ STATE.medicoFirma=STATE.data.firmaDataUrl; marca('firma solicitante (incluida)'); }
+  else traerFirmaSolicitante(r.tieneFirmaSol);
   preview().then(()=>marca('impreso dibujado'));
   arrancarFirmas(r.firmas);   // después de la solicitud: evita que las dos peticiones se encolen
 })();
@@ -559,6 +560,10 @@ function datosCompletos(){
 function sinAvisarActivo(){const c=$('sinAvisar');return !!(c&&!$('sinAvisarField').hidden&&c.checked);}
 $('btnAprobar').onclick=async()=>{
   await esperarFirmaSolicitante();
+  if(STATE.tieneFirmaSol && !STATE.medicoFirma){
+    alert('No se ha podido recuperar la firma del solicitante, así que el documento saldría sin ella.\n\nRecarga la página y vuelve a intentarlo. Si persiste, avísame antes de aprobar.');
+    return;
+  }
   if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
   bloquear();showMsg('<strong>Aprobando y enviando…</strong>');
   const bytes=await buildDoc(true);
