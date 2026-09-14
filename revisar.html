@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260913-212104">
+<meta name="build" content="20260913-215433">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Revisión de solicitud · Dirección · SAS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -154,6 +154,12 @@
           <div id="firmaPrev" style="display:none;margin-top:8px;border:1px dashed var(--linea);border-radius:8px;background:#fff;height:90px;align-items:center;justify-content:center;overflow:hidden"><img id="firmaPrevImg" alt="" style="max-height:80px;max-width:100%"></div>
         </div>
         <div class="field"><label for="dirFdo">Firmado (Dirección)</label><input id="dirFdo" type="text" value="La Dirección"></div>
+        <div class="field" id="sinAvisarField" hidden>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;font-size:13.5px;cursor:pointer">
+            <input type="checkbox" id="sinAvisar" checked style="width:auto;margin-top:3px">
+            <span>No volver a escribir al trabajador (corrección de un envío anterior). El documento sí se reenvía a RRHH.</span>
+          </label>
+        </div>
         <div class="field" id="sigDirField">
           <label>Firma de la Dirección <span style="font-weight:400;color:var(--gris)">— con el dedo</span></label>
           <div class="sigwrap"><canvas id="sigDir" class="sigpad"></canvas><button type="button" class="sigclear" id="sigDirClear">Borrar</button></div>
@@ -402,31 +408,48 @@ function aplicarEstado(estado,solic){
   $('informeCard').hidden=!dir;
   $('barDir').hidden=!dir;
   if(dir){b.className='banner pend';b.textContent='Pendiente de tu visto bueno.'+(solic?' Solicitante: '+solic:'');}
-  else if(terminal){b.className=(estado==='aprobada y enviada')?'banner ok':'banner no';b.textContent='Esta solicitud ya está: '+estado+'.';
-    document.querySelectorAll('#formCard input,#formCard select,#formCard textarea,#formCard button').forEach(el=>el.disabled=true);}
+  else if(terminal){
+    b.className=(estado==='aprobada y enviada')?'banner ok':'banner no';
+    b.innerHTML='Esta solicitud ya está: '+estado+'. <button type="button" class="btn ghost" id="btnReabrir" style="padding:6px 12px;margin-left:10px">Rehacer resolución</button>';
+    bloquearFormulario(true);
+    $('btnReabrir').onclick=()=>{
+      if(!confirm('Vas a resolverla otra vez.\n\nSe generará un documento nuevo y se volverán a enviar los correos correspondientes (a RRHH y al trabajador). Úsalo solo para corregir un error, por ejemplo si el PDF salió sin firma.\n\n¿Continuar?')) return;
+      bloquearFormulario(false);
+      $('informeCard').hidden=false; $('barDir').hidden=false;
+      $('sinAvisarField').hidden=false; $('sinAvisar').disabled=false;
+      b.className='banner pend';
+      b.textContent='Rehaciendo la resolución de una solicitud ya resuelta ('+estado+'). Al aprobar se reenviarán los correos.';
+      auto();
+    };
+  }
   else{b.className='banner pend';b.textContent='Estado: '+estado;}
+}
+function bloquearFormulario(v){
+  document.querySelectorAll('#formCard input,#formCard select,#formCard textarea,#formCard button').forEach(el=>{el.disabled=v;});
+  if(!v) syncAdd();
 }
 
 /* ---- acciones de revisión ---- */
+function sinAvisarActivo(){const c=$('sinAvisar');return !!(c&&!$('sinAvisarField').hidden&&c.checked);}
 $('btnAprobar').onclick=async()=>{
   if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
   bloquear();showMsg('<strong>Aprobando y enviando…</strong>');
   const bytes=await buildDoc(true);
   const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'favorable',
-    pdfBase64:bytesToB64(bytes),filename:'Solicitud_aprobada.pdf',motivo:$('dirMotivo').value,data:collect()});
-  finRes(r,'✓ Aprobada, firmada y enviada a RRHH. Confirmación y copia al trabajador.');
+    pdfBase64:bytesToB64(bytes),filename:'Solicitud_aprobada.pdf',motivo:$('dirMotivo').value,data:collect(),sinAvisar:sinAvisarActivo()});
+  finRes(r,sinAvisarActivo()?'✓ Documento corregido y reenviado a RRHH. No se ha escrito al trabajador.':'✓ Aprobada, firmada y enviada a RRHH. Confirmación y copia al trabajador.');
 };
 $('btnProponer').onclick=async()=>{
   bloquear();showMsg('<strong>Enviando propuesta al trabajador…</strong>');
   const d=collect();
   const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'proponer',
-    periodo:periodoTexto(d),motivo:$('dirMotivo').value,data:d});
+    periodo:periodoTexto(d),motivo:$('dirMotivo').value,data:d,sinAvisar:sinAvisarActivo()});
   finRes(r,'✓ Días propuestos enviados al trabajador. Cuando le encajen, hará una nueva solicitud.');
 };
 $('btnDenegar').onclick=async()=>{
   if(!$('dirMotivo').value.trim()&&!confirm('¿Denegar sin motivo?'))return;
   bloquear();showMsg('<strong>Denegando…</strong>');
-  const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'denegar',motivo:$('dirMotivo').value});
+  const r=await api({token:TOKEN,action:'resolver',id:STATE.id,decision:'denegar',motivo:$('dirMotivo').value,sinAvisar:sinAvisarActivo()});
   finRes(r,'Solicitud denegada. Se ha avisado al trabajador con el motivo.');
 };
 function finRes(r,okMsg){
