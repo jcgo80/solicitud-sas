@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-112724">
+<meta name="build" content="20260914-113051">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -357,6 +357,25 @@ function aPng(dataUrl){
   });
 }
 
+/* ---- firma del solicitante: viaja aparte para que la carga sea ligera ---- */
+let FIRMA_SOL=null;   // promesa mientras se descarga
+function traerFirmaSolicitante(tiene){
+  if(!tiene){ marca('sin firma del solicitante'); return; }
+  const k='firma_sol_'+STATE.id;
+  let local=''; try{ local=localStorage.getItem(k)||''; }catch(e){}
+  if(local){ STATE.medicoFirma=local; marca('firma solicitante (del dispositivo)'); preview(); return; }
+  FIRMA_SOL=api({token:TOKEN,action:'firma_sol',id:STATE.id},2).then(r=>{
+    if(r&&r.ok&&r.dataUrl){
+      STATE.medicoFirma=r.dataUrl;
+      try{ localStorage.setItem(k,r.dataUrl); }catch(e){}
+      marca('firma solicitante recibida');
+      preview();
+    } else { marca('firma solicitante NO disponible'); }
+    FIRMA_SOL=null;
+  });
+}
+async function esperarFirmaSolicitante(){ if(FIRMA_SOL) { try{ await FIRMA_SOL; }catch(e){} } }
+
 /* ---- firmas guardadas de la Dirección (2 slots, con PIN) ----
    La lista solo trae nombres (respuesta mínima). La imagen se descarga al
    elegirla y se guarda en el dispositivo, así solo viaja una vez. */
@@ -436,6 +455,7 @@ async function api(payload,intentos){
       const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow',signal:ac.signal});
       clearTimeout(t);
       const txt=await res.text();
+      try{ if(typeof marca==='function') marca('respuesta '+(payload.action||'')+' · '+Math.round(txt.length/1024)+' KB'); }catch(_){}
       try{return JSON.parse(txt);}catch(_){}
     }catch(_){}
     if(k<intentos-1) await new Promise(r=>setTimeout(r,1200*(k+1)));
@@ -479,12 +499,13 @@ function marca(nombre){
   STATE.estado=r.estado;STATE.data=r.data||{};
   setData(STATE.data);
   aplicarEstado(r.estado,r.solicitante);
-  if(!STATE.medicoFirma){
+  if(r.tieneFirmaSol===false){
     const w=document.createElement('div'); w.className='banner no'; w.style.marginTop='-8px';
     w.textContent='Aviso: esta solicitud no conserva la firma del solicitante, así que el impreso saldrá sin ella. (Ocurría con las resueltas antes de la corrección del 13/09.)';
     $('banner').insertAdjacentElement('afterend', w);
   }
   marca('datos en pantalla');
+  traerFirmaSolicitante(r.tieneFirmaSol);
   preview().then(()=>marca('impreso dibujado'));
   arrancarFirmas();   // después de la solicitud: evita que las dos peticiones se encolen
 })();
@@ -520,9 +541,14 @@ function bloquearFormulario(v){
 /* ---- acciones de revisión ---- */
 /* Fusiona lo editado con el JSON original: así no se pierden campos que esta
    pantalla no muestra (firma del solicitante, aceptación del aviso de datos…). */
-function datosCompletos(){ return Object.assign({}, STATE.data || {}, collect()); }
+function datosCompletos(){
+  const d=Object.assign({}, STATE.data || {}, collect());
+  delete d.firmaDataUrl;   // el cartero la conserva; no hace falta reenviarla (fusiona, no reemplaza)
+  return d;
+}
 function sinAvisarActivo(){const c=$('sinAvisar');return !!(c&&!$('sinAvisarField').hidden&&c.checked);}
 $('btnAprobar').onclick=async()=>{
+  await esperarFirmaSolicitante();
   if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
   bloquear();showMsg('<strong>Aprobando y enviando…</strong>');
   const bytes=await buildDoc(true);
