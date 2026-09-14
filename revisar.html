@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-115230">
+<meta name="build" content="20260914-120143">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -483,7 +483,7 @@ function showMsg(html){const m=$('msg');m.hidden=false;m.innerHTML=html;}
 function bloquear(){['btnAprobar','btnProponer','btnDenegar'].forEach(id=>{const b=$(id);if(b)b.disabled=true;});}
 
 /* ---- diagnóstico: abrir la página con &debug=1 muestra los tiempos ---- */
-const DEBUG=new URLSearchParams(location.search).get('debug')==='1';
+const DEBUG=new URLSearchParams(location.search).get('debug')!=='0';   // visible mientras dure la fase de pruebas; ?debug=0 lo oculta
 const T_INI=Date.now();
 const MARCAS=[];
 function marca(nombre){
@@ -491,7 +491,9 @@ function marca(nombre){
   if(!DEBUG) return;
   let c=document.getElementById('debugBox');
   if(!c){ c=document.createElement('div'); c.id='debugBox';
-    c.style.cssText='position:fixed;right:8px;bottom:8px;z-index:999;background:#111;color:#0f0;font:12px/1.4 monospace;padding:8px 10px;border-radius:8px;max-width:280px;white-space:pre';
+    c.style.cssText='position:fixed;right:8px;bottom:8px;z-index:999;background:#111;color:#0f0;font:11px/1.35 monospace;padding:7px 9px;border-radius:8px;max-width:280px;white-space:pre;opacity:.92;cursor:pointer';
+    c.title='Tiempos de carga (fase de pruebas). Pulsa para ocultar.';
+    c.onclick=function(){c.remove();};
     document.body.appendChild(c); }
   c.textContent=MARCAS.map(m=>m[1].toString().padStart(6)+' ms  '+m[0]).join('\n');
 }

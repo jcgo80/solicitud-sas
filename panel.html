@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="build" content="20260914-112724">
+<meta name="build" content="20260914-120143">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel de solicitudes · Urgencias HUJ</title>
 <script>
@@ -164,6 +164,21 @@ function toast(msg, type){
   t.textContent = msg; t.className = 'show ' + (type||'');
   setTimeout(()=>{ t.className = (type||''); }, 2600);
 }
+/* ---- tiempos de carga (fase de pruebas). Añade ?debug=0 para ocultarlos ---- */
+const DEBUG=new URLSearchParams(location.search).get('debug')!=='0';
+let T_INI=Date.now(); const MARCAS=[];
+function marca(txt){
+  MARCAS.push([txt, Date.now()-T_INI]);
+  if(!DEBUG) return;
+  let c=document.getElementById('debugBox');
+  if(!c){ c=document.createElement('div'); c.id='debugBox';
+    c.style.cssText='position:fixed;right:8px;bottom:8px;z-index:999;background:#111;color:#0f0;font:11px/1.35 monospace;padding:7px 9px;border-radius:8px;max-width:280px;white-space:pre;opacity:.92;cursor:pointer';
+    c.title='Tiempos de carga (fase de pruebas). Pulsa para ocultar.';
+    c.onclick=function(){c.remove();};
+    document.body.appendChild(c); }
+  c.textContent=MARCAS.map(m=>String(m[1]).padStart(6)+' ms  '+m[0]).join('\n');
+}
+
 async function call(payload){
   for(let k=0;k<3;k++){
     try{
@@ -171,6 +186,7 @@ async function call(payload){
       const res = await fetch(ENDPOINT, {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body: JSON.stringify(Object.assign({token:TOKEN}, payload)),redirect:'follow',signal:ac.signal});
       clearTimeout(t);
       const txt = await res.text();
+      marca('respuesta '+(payload.action||'')+' · '+Math.round(txt.length/1024)+' KB'+(k?' (intento '+(k+1)+')':''));
       try { return JSON.parse(txt); } catch(e){}
     }catch(e){}
     if(k<2) await new Promise(r=>setTimeout(r,1500*(k+1)));
@@ -188,10 +204,12 @@ async function entrar(pinPrevio){
   if(!pin){ estado('Introduce el PIN','err'); return; }
   PIN = pin;
   // 1) Pintar YA lo que había guardado en este dispositivo (carga instantánea).
+  T_INI=Date.now(); MARCAS.length=0;
   const cache = leerCache();
   if(cache){
     DATA = cache.solicitudes || []; REVISAR = cache.revisar || REVISAR;
     abrirPanel(); pintar();
+    marca('lista del dispositivo en pantalla');
     estado('Actualizando…','load');
   } else {
     estado('Conectando con el servidor…','load');
@@ -208,6 +226,7 @@ async function entrar(pinPrevio){
   DATA = r.solicitudes || [];
   guardarCache({solicitudes:DATA, revisar:REVISAR, ts:Date.now()});
   abrirPanel(); pintar();
+  marca('lista actualizada del servidor');
   estado('Actualizado ' + new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}), 'ok');
 }
 function abrirPanel(){
