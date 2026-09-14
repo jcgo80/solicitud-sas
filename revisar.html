@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="20260914-114221">
+<meta name="build" content="20260914-115230">
 <script>
 /* Arranque anticipado: lanza la petición al cartero ANTES de descargar el resto
    de la página (1,5 MB). Así la espera del servidor y la carga del archivo
@@ -194,7 +194,7 @@
 
     <div>
       <div class="card preview-card">
-        <p class="eyebrow"><span class="n">★</span> Impreso</p>
+        <p class="eyebrow"><span class="n">★</span> Impreso <span id="estadoFirmaSol" style="display:none;font-weight:600;letter-spacing:0;text-transform:none;color:var(--ambar);margin-left:8px"></span></p>
         <div class="frame"><iframe id="previewFrame" title="Vista previa"></iframe></div>
 
         <!-- Barra de revisión -->
@@ -364,19 +364,26 @@ function aPng(dataUrl){
 
 /* ---- firma del solicitante: viaja aparte para que la carga sea ligera ---- */
 let FIRMA_SOL=null;   // promesa mientras se descarga
+function estadoFirmaSol(txt,color){
+  const e=$('estadoFirmaSol'); if(!e) return;
+  if(!txt){ e.style.display='none'; return; }
+  e.style.display=''; e.textContent=txt; e.style.color=color||'var(--ambar)';
+}
 function traerFirmaSolicitante(tiene){
   if(!tiene){ marca('sin firma del solicitante'); return; }
+  estadoFirmaSol('· cargando la firma del solicitante…');
   const k='firma_sol_'+STATE.id;
   let local=''; try{ local=localStorage.getItem(k)||''; }catch(e){}
-  if(local){ STATE.medicoFirma=local; marca('firma solicitante (del dispositivo)'); preview(); return; }
+  if(local){ STATE.medicoFirma=local; marca('firma solicitante (del dispositivo)'); estadoFirmaSol(''); preview(); return; }
   const pedida = window.__preFirmaSol || api({token:TOKEN,action:'firma_sol',id:STATE.id},2);
   FIRMA_SOL=Promise.resolve(pedida).then(r=>{
     if(r&&r.ok&&r.dataUrl){
       STATE.medicoFirma=r.dataUrl;
       try{ localStorage.setItem(k,r.dataUrl); }catch(e){}
       marca('firma solicitante recibida');
+      estadoFirmaSol('');
       preview();
-    } else { marca('firma solicitante NO disponible'); }
+    } else { marca('firma solicitante NO disponible'); estadoFirmaSol('· no se pudo cargar la firma del solicitante','var(--rojo)'); }
     FIRMA_SOL=null;
   });
 }
@@ -561,7 +568,7 @@ function sinAvisarActivo(){const c=$('sinAvisar');return !!(c&&!$('sinAvisarFiel
 $('btnAprobar').onclick=async()=>{
   await esperarFirmaSolicitante();
   if(STATE.tieneFirmaSol && !STATE.medicoFirma){
-    alert('No se ha podido recuperar la firma del solicitante, así que el documento saldría sin ella.\n\nRecarga la página y vuelve a intentarlo. Si persiste, avísame antes de aprobar.');
+    alert('Todavía se está descargando la firma del solicitante.\n\nEspera unos segundos: cuando aparezca en el impreso, el botón volverá a estar disponible. Si el aviso persiste, recarga la página.');
     return;
   }
   if(!firmaElegida()&&!sigDirInk()&&!confirm('No has firmado. ¿Aprobar igualmente?'))return;
